@@ -1,0 +1,13 @@
+{
+  "name": "skyglance",
+  "description": "Ask Claude what's flying above you. Live ADS-B positions with where to look in the sky, aircraft identity, routes, photographs, and a local history of everything that's passed over.",
+  "version": "0.2.0",
+  "author": {
+    "name": "Darsh Joshi",
+    "email": "contact@darshjoshi.com"
+  },
+  "homepage": "https://github.com/darshjoshi/skyglance-mcp",
+  "repository": "https://github.com/darshjoshi/skyglance-mcp",
+  "license": "MIT",
+  "keywords": ["aviation", "adsb", "flight-tracking", "planespotting", "aircraft"]
+}

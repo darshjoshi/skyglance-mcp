@@ -1,0 +1,39 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.darshjoshi/skyglance",
+  "title": "SkyGlance — What's Flying Above You",
+  "description": "Live aircraft overhead with elevation and bearing, aircraft identity, routes, photos, and your own sighting history. Free ADS-B data, no API keys.",
+  "websiteUrl": "https://github.com/darshjoshi/skyglance-mcp",
+  "repository": {
+    "url": "https://github.com/darshjoshi/skyglance-mcp",
+    "source": "github"
+  },
+  "version": "0.2.0",
+  "packages": [
+    {
+      "registryType": "pypi",
+      "identifier": "skyglance",
+      "version": "0.2.0",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "SKYGLANCE_HOME_LAT",
+          "description": "Your latitude. Enables background sighting history.",
+          "isRequired": false
+        },
+        {
+          "name": "SKYGLANCE_HOME_LON",
+          "description": "Your longitude. Enables background sighting history.",
+          "isRequired": false
+        },
+        {
+          "name": "SKYGLANCE_POLL",
+          "description": "Set to 0 to disable background history recording.",
+          "isRequired": false
+        }
+      ]
+    }
+  ]
+}
