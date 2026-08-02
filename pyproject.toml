@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "skyglance"
-version = "0.2.0"
+version = "0.2.1"
 description = "Ask Claude what's flying above you — live ADS-B positions, aircraft identity, routes, photos, and your own sighting history. No API keys."
 readme = "README.md"
 license = "MIT"

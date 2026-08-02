@@ -1,19 +1,19 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.darshjoshi/skyglance",
-  "title": "SkyGlance — What's Flying Above You",
-  "description": "Live aircraft overhead with elevation and bearing, aircraft identity, routes, photos, and your own sighting history. Free ADS-B data, no API keys.",
+  "title": "SkyGlance \u2014 What's Flying Above You",
+  "description": "What's flying above you: live aircraft, identity, routes, and your own sighting history.",
   "websiteUrl": "https://github.com/darshjoshi/skyglance-mcp",
   "repository": {
     "url": "https://github.com/darshjoshi/skyglance-mcp",
     "source": "github"
   },
-  "version": "0.2.0",
+  "version": "0.2.1",
   "packages": [
     {
       "registryType": "pypi",
       "identifier": "skyglance",
-      "version": "0.2.0",
+      "version": "0.2.1",
       "transport": {
         "type": "stdio"
       },

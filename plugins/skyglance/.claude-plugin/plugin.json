@@ -1,7 +1,7 @@
 {
   "name": "skyglance",
   "description": "Ask Claude what's flying above you. Live ADS-B positions with where to look in the sky, aircraft identity, routes, photographs, and a local history of everything that's passed over.",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "author": {
     "name": "Darsh Joshi",
     "email": "contact@darshjoshi.com"

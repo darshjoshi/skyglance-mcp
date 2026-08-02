@@ -146,3 +146,31 @@ class TestVersionSync:
         from skyglance.feeds import USER_AGENT
         major_minor = ".".join(self._pyproject_version().split(".")[:2])
         assert f"skyglance-mcp/{major_minor}" in USER_AGENT
+
+
+class TestRegistryConstraints:
+    """Limits the MCP registry enforces server-side but does NOT publish in its schema.
+
+    Discovered the only way they can be: a release failed with HTTP 422 on
+    `body.description: expected length <= 100`. The published JSON Schema declares no
+    maxLength at all, so this is not derivable from the schema — it has to be pinned
+    here or the next release finds it again at publish time, after PyPI has already
+    taken the version number and made it unreusable.
+    """
+
+    MAX_DESCRIPTION = 100
+
+    def test_description_fits_the_registry_limit(self):
+        data = json.loads((REPO / "server.json").read_text())
+        length = len(data["description"])
+        assert length <= self.MAX_DESCRIPTION, (
+            f"server.json description is {length} chars; the registry rejects anything "
+            f"over {self.MAX_DESCRIPTION} with a 422 at publish time")
+
+    def test_required_registry_fields_present(self):
+        data = json.loads((REPO / "server.json").read_text())
+        for field in ("$schema", "name", "description", "version", "packages"):
+            assert data.get(field), f"server.json is missing {field!r}"
+        assert data["name"].startswith("io.github."), \
+            "the registry namespaces by GitHub owner"
+        assert data["packages"][0]["registryType"] == "pypi"

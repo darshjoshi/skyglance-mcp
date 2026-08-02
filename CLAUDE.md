@@ -98,6 +98,12 @@ Bump the version in **four** places or the release is broken:
 Then publish a GitHub release; `.github/workflows/publish.yml` handles PyPI (trusted
 publishing) and the MCP registry.
 
+**The registry enforces limits its published schema does not declare.** `description`
+must be <= 100 characters; anything longer fails with HTTP 422 at publish time, *after*
+PyPI has already taken the version number and made it unreusable — which is exactly how
+0.2.0 was burned. `tests/test_server.py::TestRegistryConstraints` pins the ones known so
+far. Add to it whenever the registry rejects something new.
+
 **Never republish a changed build under an existing version.** `uvx` caches its
 environment by package version, so users who already ran that version keep executing the
 old code — silently, with no error. Verified during development: a rebuilt `0.1.0` wheel
