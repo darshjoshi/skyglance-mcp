@@ -87,13 +87,18 @@ values by running that file rather than by hand.
 
 ## Releasing
 
-Bump the version in **four** places or the release is broken:
+Bump the version in **five** places or the release is broken:
 
 1. `pyproject.toml` → `version`
 2. `server.json` → `version` **and** `packages[0].version` (the registry rejects a
    mismatch with PyPI)
 3. `plugins/skyglance/.claude-plugin/plugin.json` → `version`
 4. `.claude-plugin/marketplace.json` → `plugins[0].version`
+5. `plugins/skyglance/.mcp.json` → the `skyglance==X.Y.Z` pin (the directory blocks
+   unpinned launchers). Plugin installs fail in the few minutes between pushing the
+   bump and the release workflow putting that version on PyPI, so release promptly.
+
+`tests/test_server.py::TestVersionSync` checks all five.
 
 Then publish a GitHub release; `.github/workflows/publish.yml` handles PyPI (trusted
 publishing) and the MCP registry.

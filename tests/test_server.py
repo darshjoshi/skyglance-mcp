@@ -231,6 +231,19 @@ class TestVersionSync:
         data = json.loads((REPO / ".claude-plugin/marketplace.json").read_text())
         assert data["plugins"][0]["version"] == self._pyproject_version()
 
+    def test_plugin_launcher_pins_the_released_version(self):
+        """uvx with no pin runs whatever PyPI serves; the directory blocks unpinned launchers."""
+        data = json.loads((REPO / "plugins/skyglance/.mcp.json").read_text())
+        args = data["mcpServers"]["skyglance"]["args"]
+        assert f"skyglance=={self._pyproject_version()}" in args
+
+    def test_spotter_marketplace_entry_matches_its_manifest(self):
+        """The spotter plugin versions separately (it ships from source, not PyPI)."""
+        market = json.loads((REPO / ".claude-plugin/marketplace.json").read_text())
+        entry = next(p for p in market["plugins"] if p["name"] == "skyglance-spotter")
+        manifest = json.loads((REPO / ".claude-plugin/plugin.json").read_text())
+        assert entry["version"] == manifest["version"]
+
     def test_user_agent_reports_the_shipped_version(self):
         """Volunteer feed operators read this; a stale version makes their logs lie."""
         from skyglance.feeds import USER_AGENT
