@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "skyglance-spotter": {
+      "command": "uv",
+      "args": ["run", "--locked", "--no-dev", "--project", "${CLAUDE_PLUGIN_ROOT}", "${CLAUDE_PLUGIN_ROOT}/run_server.py"],
+      "env": {
+        "SKYGLANCE_EDITION": "directory",
+        "SKYGLANCE_HOME_LAT": "${user_config.home_lat}",
+        "SKYGLANCE_HOME_LON": "${user_config.home_lon}",
+        "SKYGLANCE_POLL": "${user_config.record_history}",
+        "SKYGLANCE_HOME_DIR": "${CLAUDE_PLUGIN_DATA}",
+        "UV_PROJECT_ENVIRONMENT": "${CLAUDE_PLUGIN_DATA}/venv"
+      }
+    }
+  }
+}

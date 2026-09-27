@@ -72,6 +72,15 @@ class TestToolInventory:
         assert not missing, f"tools absent from the skill routing table: {sorted(missing)}"
 
 
+    def test_directory_skill_routes_exactly_the_directory_tools(self):
+        """The spotter plugin's skill must not route to a tool that edition leaves out."""
+        names = set(_tools_in_edition("directory"))
+        skill = (REPO / "skills/sky/SKILL.md").read_text()
+        missing = {n for n in names if f"`{n}`" not in skill}
+        assert not missing, f"tools absent from the spotter skill: {sorted(missing)}"
+        for left_out in TestDirectoryEdition.LEFT_OUT:
+            assert left_out not in skill, f"spotter skill mentions {left_out}"
+
 class TestLocationResolution:
     def test_explicit_coordinates_win(self, monkeypatch):
         monkeypatch.setenv("SKYGLANCE_HOME_LAT", "51.47")
