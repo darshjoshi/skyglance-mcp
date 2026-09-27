@@ -5,7 +5,10 @@ and nothing caught it because nothing checked. This does.
 """
 
 import json
+import os
 import re
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -95,6 +98,84 @@ class TestLocationResolution:
         monkeypatch.setenv("SKYGLANCE_HOME_LAT", "not-a-number")
         monkeypatch.setenv("SKYGLANCE_HOME_LON", "-0.45")
         assert server.home() is None
+
+    @pytest.mark.parametrize("lat", ["", "${user_config.home_lat}", "95", "nan"])
+    def test_unset_or_invalid_plugin_setting_means_no_home(self, monkeypatch, lat):
+        """The directory plugin passes its settings through as strings, possibly empty."""
+        monkeypatch.setenv("SKYGLANCE_HOME_LAT", lat)
+        monkeypatch.setenv("SKYGLANCE_HOME_LON", "-0.45")
+        assert server.home() is None
+
+
+class TestPollEnabled:
+    @pytest.mark.parametrize("value,expected", [
+        ("1", True), ("true", True), ("True", True), ("yes", True), ("on", True),
+        ("0", False), ("false", False), ("", False), ("off", False),
+    ])
+    def test_explicit_values(self, monkeypatch, value, expected):
+        monkeypatch.setenv("SKYGLANCE_POLL", value)
+        assert server.poll_enabled() is expected
+
+    def test_standalone_server_records_by_default(self, monkeypatch):
+        monkeypatch.delenv("SKYGLANCE_POLL", raising=False)
+        monkeypatch.setattr(server, "DIRECTORY_EDITION", False)
+        assert server.poll_enabled() is True
+
+    @pytest.mark.parametrize("value", [None, "${user_config.record_history}"])
+    def test_directory_edition_records_only_when_opted_in(self, monkeypatch, value):
+        if value is None:
+            monkeypatch.delenv("SKYGLANCE_POLL", raising=False)
+        else:
+            monkeypatch.setenv("SKYGLANCE_POLL", value)
+        monkeypatch.setattr(server, "DIRECTORY_EDITION", True)
+        assert server.poll_enabled() is False
+
+
+def _tools_in_edition(edition: str) -> dict[str, dict]:
+    """Tool name -> input schema, from a fresh interpreter (the edition is read at import)."""
+    script = ("import asyncio, json; from skyglance import server; "
+              "print(json.dumps({t.name: t.inputSchema "
+              "for t in asyncio.run(server.mcp.list_tools())}))")
+    env = {**os.environ, "SKYGLANCE_EDITION": edition}
+    out = subprocess.run([sys.executable, "-c", script], env=env, check=True,
+                         capture_output=True, text=True).stdout
+    return json.loads(out.strip().splitlines()[-1])
+
+
+class TestDirectoryEdition:
+    """The directory edition is the same server minus the aircraft-following features."""
+
+    LEFT_OUT = {"military_aircraft", "privacy_blocked_aircraft"}
+
+    def test_sensitive_tools_are_not_registered(self):
+        tools = _tools_in_edition("directory")
+        assert not self.LEFT_OUT & tools.keys()
+        assert len(tools) == 22
+
+    def test_search_has_no_military_filter(self):
+        schema = _tools_in_edition("directory")["search_aircraft"]
+        assert "military_only" not in schema["properties"]
+
+    def test_standalone_server_keeps_everything(self):
+        tools = _tools_in_edition("")
+        assert self.LEFT_OUT <= tools.keys()
+        assert "military_only" in tools["search_aircraft"]["properties"]
+        assert len(tools) == 24
+
+    def test_instructions_match_the_edition(self):
+        """The instructions are edited by string replace; a no-op replace fails silently."""
+        script = "from skyglance import server; print(repr(server.mcp.instructions))"
+        env = {**os.environ, "SKYGLANCE_EDITION": "directory"}
+        out = subprocess.run([sys.executable, "-c", script], env=env, check=True,
+                             capture_output=True, text=True).stdout
+        assert "military_aircraft" not in out
+        assert "SKYGLANCE_HOME" not in out
+        assert "plugin" in out
+
+    async def test_every_tool_is_titled_and_read_only(self):
+        for tool in await server.mcp.list_tools():
+            assert tool.title, f"{tool.name} has no title"
+            assert tool.annotations and tool.annotations.readOnlyHint, tool.name
 
 
 class TestUnavailableIsNotZero:

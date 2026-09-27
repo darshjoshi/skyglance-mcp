@@ -47,9 +47,18 @@ PREDICTION_HORIZON_S = 90
 
 MAX_RADIUS_NM = 250
 
-mcp = FastMCP(
-    "SkyGlance",
-    instructions="""SkyGlance — what is flying above you, and what you've seen before.
+#: Set by the Claude directory plugin (skyglance-spotter). That edition leaves out the
+#: features built around following aircraft whose owners or operators would rather not be
+#: followed (military_aircraft, privacy_blocked_aircraft, and search_aircraft's
+#: military_only filter), records history only when the user opts in, and points people
+#: at the plugin's settings instead of environment variables.
+DIRECTORY_EDITION = os.environ.get("SKYGLANCE_EDITION") == "directory"
+
+#: Where the user sets their home location, in words that fit the edition they run.
+HOME_SETTING = ("the home location in the SkyGlance Spotter plugin settings"
+                if DIRECTORY_EDITION else "SKYGLANCE_HOME_LAT/SKYGLANCE_HOME_LON")
+
+_INSTRUCTIONS = """SkyGlance — what is flying above you, and what you've seen before.
 
 LOCATION: most tools take lat/lon. If omitted they use SKYGLANCE_HOME_LAT/LON. If
 neither is set, ask the user where they are rather than guessing a city.
@@ -82,17 +91,30 @@ HONESTY RULES:
 
 ATTRIBUTION: every position result carries an `attribution` field. adsb.lol data is
 ODbL and photo credits are a condition of use, so pass them through when you show the
-data.""",
-)
+data."""
+
+if DIRECTORY_EDITION:
+    _INSTRUCTIONS = (_INSTRUCTIONS
+                     .replace("If omitted they use SKYGLANCE_HOME_LAT/LON. If\nneither is set,",
+                              "If omitted they use the home location from the plugin\n"
+                              "settings. If none is set,")
+                     .replace('- "any military aircraft" -> military_aircraft\n', ""))
+
+mcp = FastMCP("SkyGlance", instructions=_INSTRUCTIONS)
 
 
-def _tool(title: str):
+def _tool(title: str, *, directory: bool = True):
     """Register a tool with a display title and read-only annotations.
+
+    directory=False leaves the tool out of the directory edition entirely: it is never
+    registered, so Claude can't see or call it there.
 
     Every SkyGlance tool reads public flight data or the local history; none changes
     anything outside this machine. The only writes are local lookup caches, so
     readOnlyHint is honest, and Claude can run the tools without a per-call prompt.
     """
+    if DIRECTORY_EDITION and not directory:
+        return lambda fn: fn
     return mcp.tool(title=title, annotations=ToolAnnotations(
         title=title, readOnlyHint=True, destructiveHint=False,
         idempotentHint=True, openWorldHint=True,
@@ -144,12 +166,29 @@ def world() -> WorldView:
 
 
 def home() -> Optional[tuple[float, float]]:
+    # Plugin settings arrive as strings, and an unset one can arrive empty or as the
+    # literal "${user_config.home_lat}". Anything that isn't a real coordinate is "unset".
     try:
         lat = float(os.environ["SKYGLANCE_HOME_LAT"])
         lon = float(os.environ["SKYGLANCE_HOME_LON"])
     except (KeyError, ValueError):
         return None
+    if not (-90 <= lat <= 90 and -180 <= lon <= 180):
+        return None
     return lat, lon
+
+
+def poll_enabled() -> bool:
+    """Whether background history recording is allowed.
+
+    On by default for the standalone server, off by default in the directory edition,
+    where the user switches it on in the plugin settings. Accepts 1/true/yes/on.
+    """
+    default = "0" if DIRECTORY_EDITION else "1"
+    value = os.environ.get("SKYGLANCE_POLL", default).strip().lower()
+    if value.startswith("${"):
+        value = default
+    return value in {"1", "true", "yes", "on"}
 
 
 def resolve_location(lat: Optional[float], lon: Optional[float]) -> tuple[float, float]:
@@ -160,7 +199,7 @@ def resolve_location(lat: Optional[float], lon: Optional[float]) -> tuple[float,
     configured = home()
     if configured is None:
         raise ValueError(
-            "No location given and SKYGLANCE_HOME_LAT/SKYGLANCE_HOME_LON are not set. "
+            f"No location given and {HOME_SETTING} is not set. "
             "Ask the user where they are, then pass lat and lon.")
     return configured
 
@@ -168,7 +207,7 @@ def resolve_location(lat: Optional[float], lon: Optional[float]) -> tuple[float,
 def _maybe_start_poller() -> None:
     """Start background polling once, if a home location is configured."""
     global _poller, _poller_started
-    if _poller_started or os.environ.get("SKYGLANCE_POLL") == "0":
+    if _poller_started or not poll_enabled():
         return
     _poller_started = True
     configured = home()
@@ -582,7 +621,7 @@ def _global_result(aircraft: list, obs: Optional[tuple[float, float]],
     return rows
 
 
-@_tool("Military Aircraft")
+@_tool("Military Aircraft", directory=False)
 async def military_aircraft(near_me: bool = False, within_km: float = 400,
                             lat: Optional[float] = None,
                             lon: Optional[float] = None) -> dict:
@@ -819,7 +858,7 @@ async def airline_info(code: str) -> dict:
     return {"found": True, **result, "attribution": ["adsbdb.com"]}
 
 
-@_tool("Privacy-Blocked Aircraft")
+@_tool("Privacy-Blocked Aircraft", directory=False)
 async def privacy_blocked_aircraft(near_me: bool = False, within_km: float = 400,
                                    lat: Optional[float] = None,
                                    lon: Optional[float] = None) -> dict:
@@ -907,23 +946,15 @@ async def fleet_view(airline: str, limit: int = 60) -> dict:
     }
 
 
-@_tool("Search Aircraft")
-async def search_aircraft(airline: Optional[str] = None, type_code: Optional[str] = None,
-                          min_altitude_ft: Optional[float] = None,
-                          max_altitude_ft: Optional[float] = None,
-                          min_speed_kt: Optional[float] = None,
-                          max_speed_kt: Optional[float] = None,
-                          military_only: bool = False,
-                          near_me: bool = False, within_km: float = 400,
-                          lat: Optional[float] = None, lon: Optional[float] = None,
-                          limit: int = 40) -> dict:
-    """Find airborne aircraft matching any combination of filters.
-
-    Filter by airline (ICAO code), aircraft type, altitude band, speed band, or military
-    status — worldwide, or within a distance of a location. This is the general search:
-    "any 747s above 40,000 feet", "Lufthansa aircraft below 10,000 feet near me",
-    "anything doing over 500 knots".
-    """
+async def _search_aircraft(airline: Optional[str] = None, type_code: Optional[str] = None,
+                           min_altitude_ft: Optional[float] = None,
+                           max_altitude_ft: Optional[float] = None,
+                           min_speed_kt: Optional[float] = None,
+                           max_speed_kt: Optional[float] = None,
+                           military_only: bool = False,
+                           near_me: bool = False, within_km: float = 400,
+                           lat: Optional[float] = None, lon: Optional[float] = None,
+                           limit: int = 40) -> dict:
     snapshot = await world().sweep()
     if snapshot.error:
         return _unavailable(snapshot.error)
@@ -986,6 +1017,51 @@ async def search_aircraft(airline: Optional[str] = None, type_code: Optional[str
         "attribution": ["adsb.lol (ODbL 1.0)"],
     }
 
+
+
+# The directory edition registers search_aircraft without military_only, so the filter
+# can't bring back what leaving out military_aircraft took away. Same search otherwise.
+if DIRECTORY_EDITION:
+    @_tool("Search Aircraft")
+    async def search_aircraft(airline: Optional[str] = None, type_code: Optional[str] = None,
+                              min_altitude_ft: Optional[float] = None,
+                              max_altitude_ft: Optional[float] = None,
+                              min_speed_kt: Optional[float] = None,
+                              max_speed_kt: Optional[float] = None,
+                              near_me: bool = False, within_km: float = 400,
+                              lat: Optional[float] = None, lon: Optional[float] = None,
+                              limit: int = 40) -> dict:
+        """Find airborne aircraft matching any combination of filters.
+
+        Filter by airline (ICAO code), aircraft type, altitude band, or speed band —
+        worldwide, or within a distance of a location. This is the general search:
+        "any 747s above 40,000 feet", "Lufthansa aircraft below 10,000 feet near me",
+        "anything doing over 500 knots".
+        """
+        return await _search_aircraft(airline, type_code, min_altitude_ft, max_altitude_ft,
+                                      min_speed_kt, max_speed_kt, False, near_me,
+                                      within_km, lat, lon, limit)
+else:
+    @_tool("Search Aircraft")
+    async def search_aircraft(airline: Optional[str] = None, type_code: Optional[str] = None,
+                              min_altitude_ft: Optional[float] = None,
+                              max_altitude_ft: Optional[float] = None,
+                              min_speed_kt: Optional[float] = None,
+                              max_speed_kt: Optional[float] = None,
+                              military_only: bool = False,
+                              near_me: bool = False, within_km: float = 400,
+                              lat: Optional[float] = None, lon: Optional[float] = None,
+                              limit: int = 40) -> dict:
+        """Find airborne aircraft matching any combination of filters.
+
+        Filter by airline (ICAO code), aircraft type, altitude band, speed band, or
+        military status — worldwide, or within a distance of a location. This is the
+        general search: "any 747s above 40,000 feet", "Lufthansa aircraft below 10,000
+        feet near me", "anything doing over 500 knots".
+        """
+        return await _search_aircraft(airline, type_code, min_altitude_ft, max_altitude_ft,
+                                      min_speed_kt, max_speed_kt, military_only, near_me,
+                                      within_km, lat, lon, limit)
 
 @_tool("Global Stats")
 async def global_stats() -> dict:
@@ -1213,9 +1289,9 @@ async def my_records() -> dict:
     """Your personal extremes: closest, lowest, most directly overhead, busiest day."""
     r = store().records()
     if r["total_passes"] == 0:
-        return {"note": ("Nothing recorded yet. Set SKYGLANCE_HOME_LAT and "
-                         "SKYGLANCE_HOME_LON so the background poller can build history, "
-                         "or call whats_overhead a few times.")}
+        return {"note": ("Nothing recorded yet. History is built by the background "
+                         f"recorder, which needs {HOME_SETTING} and history recording "
+                         "switched on. poller_status shows what's missing.")}
     return r
 
 
@@ -1237,8 +1313,9 @@ async def poller_status() -> dict:
         configured = home()
         return {
             "running": False,
-            "reason": ("SKYGLANCE_POLL is 0" if os.environ.get("SKYGLANCE_POLL") == "0"
-                       else "SKYGLANCE_HOME_LAT/SKYGLANCE_HOME_LON are not set"),
+            "reason": (f"{HOME_SETTING} is not set" if configured is None
+                       else "history recording is switched off in the plugin settings"
+                       if DIRECTORY_EDITION else "SKYGLANCE_POLL is 0"),
             "home_configured": configured is not None,
             "database": str(store().path),
             "totals": store().counts(),
@@ -1260,13 +1337,17 @@ def main() -> None:
     args = parser.parse_args()
 
     configured = home()
+    edition = "directory edition, " if DIRECTORY_EDITION else ""
     # stderr, always: in stdio mode stdout is the JSON-RPC channel.
-    print(f"SkyGlance starting ({'http' if args.http else 'stdio'})", file=sys.stderr)
-    if configured:
+    print(f"SkyGlance starting ({edition}{'http' if args.http else 'stdio'})",
+          file=sys.stderr)
+    if not configured:
+        print(f"  {HOME_SETTING} not set — history recording off", file=sys.stderr)
+    elif not poll_enabled():
+        print("  history recording switched off", file=sys.stderr)
+    else:
         print(f"  home {configured[0]}, {configured[1]} — background history on",
               file=sys.stderr)
-    else:
-        print("  no SKYGLANCE_HOME_LAT/LON set — history recording off", file=sys.stderr)
 
     if args.http:
         mcp.settings.host = args.host
