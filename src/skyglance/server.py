@@ -1228,9 +1228,8 @@ async def feed_health() -> dict:
             "last_error": h.last_error,
         }
     return {"sources": report,
-            "note": "Merging three feeds also yields roughly 15% more aircraft than the "
-                    "best single source, so a degraded source costs coverage, not just "
-                    "redundancy."}
+            "note": "Merging feeds yields more aircraft than the best single source, so "
+                    "a degraded source costs coverage, not just redundancy."}
 
 
 # ── Tools: history ───────────────────────────────────────────────────────────

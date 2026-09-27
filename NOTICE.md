@@ -9,7 +9,6 @@ repackage it, or build on it, they come with you.
 | Source | Terms |
 |---|---|
 | [adsb.lol](https://www.adsb.lol) | **[ODbL 1.0](https://opendatacommons.org/licenses/odbl/1-0/)** — attribution required |
-| [airplanes.live](https://airplanes.live) | Non-commercial use |
 | [adsb.fi](https://adsb.fi) | Open data |
 | [adsbdb.com](https://www.adsbdb.com) | Free, attribution appreciated |
 | [hexdb.io](https://hexdb.io) | Free |

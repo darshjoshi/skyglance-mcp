@@ -124,7 +124,7 @@ class TestMerge:
         assert merged[0].altitude_ft == 2000.0
 
     def test_missing_fields_are_backfilled_from_the_other_source(self):
-        """airplanes.live carries desc/ownOp that the others often omit."""
+        """One feed often carries desc/ownOp that another omits."""
         merged = FeedClient._merge([
             ("s1", [self._ac("a", "s1", seen_pos_s=1.0, operator=None, type_code="B738")]),
             ("s2", [self._ac("a", "s2", seen_pos_s=9.0, operator="JetBlue", type_code=None)]),

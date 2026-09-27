@@ -133,18 +133,18 @@ With `SKYGLANCE_HOME_LAT`/`LON` set, SkyGlance polls your sky once a minute in t
 
 ## Where the data comes from
 
-Eight free services, no API keys, $0/month. Full terms in [NOTICE.md](NOTICE.md).
+Seven free services, no API keys, $0/month. Full terms in [NOTICE.md](NOTICE.md).
 
 | Layer | Services |
 |---|---|
-| **Positions** | [adsb.lol](https://adsb.lol) · [airplanes.live](https://airplanes.live) · [adsb.fi](https://adsb.fi) |
+| **Positions** | [adsb.lol](https://adsb.lol) · [adsb.fi](https://adsb.fi) |
 | **Identity** | [adsbdb.com](https://adsbdb.com) → [hexdb.io](https://hexdb.io) fallback |
 | **Photos** | [planespotters.net](https://planespotters.net) |
 | **Conditions** | [Open-Meteo](https://open-meteo.com) |
 
-All three position feeds are queried in parallel and **merged**, not failed over. Measured over Newark on 2026-08-02: 52 aircraft from the best single source, **61 from the union — 17% more**. Merging buys coverage as well as redundancy.
+Both position feeds are queried in parallel and **merged**, not failed over. Measured over Newark on 2026-08-02, when a third feed (airplanes.live) was still in the mix: 52 aircraft from the best single source, **61 from the union — 17% more**. Merging buys coverage as well as redundancy. airplanes.live has since closed its API to anyone who hasn't contacted them first, so SkyGlance no longer queries it.
 
-Each source sits behind a circuit breaker (three strikes, 30-second cooldown). These are volunteers paying for their own bandwidth, with no SLA and no obligation to anyone. If all three fail, the last good snapshot is served flagged `stale` rather than an error — a 40-second-old aircraft beats a spinner.
+Each source sits behind a circuit breaker (three strikes, 30-second cooldown). These are volunteers paying for their own bandwidth, with no SLA and no obligation to anyone. If both fail, the last good snapshot is served flagged `stale` rather than an error — a 40-second-old aircraft beats a spinner.
 
 **Not suitable for anything operational.** Dispatch, safety, ATC-adjacent — buy a commercial feed. The upstream terms say the same.
 

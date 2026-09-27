@@ -14,7 +14,7 @@ reading before changing anything here: `FREE-STACK.md`, `OVERHEAD-DETECTION.md`,
 ## Architecture
 
 - `src/skyglance/server.py` — MCP tool definitions. Thin: validate, delegate, format.
-- `src/skyglance/feeds.py` — three ADS-B feeds queried in parallel and merged. Circuit
+- `src/skyglance/feeds.py` — two ADS-B feeds queried in parallel and merged. Circuit
   breakers, rate-slot reservation, coordinate coarsening, last-good snapshot.
 - `src/skyglance/geometry.py` — elevation, bearing, slant range, closest point of approach.
 - `src/skyglance/enrich.py` — adsbdb → hexdb → planespotters, cached forever.
@@ -67,8 +67,10 @@ for operational use, and this package is redistributed.
 All free, no API keys. Terms and obligations in `NOTICE.md` — attribution is returned in
 the tool output because ODbL and planespotters require it.
 
-- Positions: adsb.lol (ODbL), airplanes.live, adsb.fi — merged, ~17% more aircraft than
-  the best single source (measured Newark 2026-08-02: union 61 vs best 52)
+- Positions: adsb.lol (ODbL), adsb.fi — merged. With airplanes.live as a third source the
+  union was ~17% more aircraft than the best single source (Newark 2026-08-02: 61 vs 52).
+  airplanes.live has answered 403 "contact us first" since September 2026 and is no longer
+  queried; don't re-add it without their agreement.
 - Identity: adsbdb.com → hexdb.io fallback · Photos: planespotters.net
 - Conditions: Open-Meteo
 - Global endpoints on adsb.lol: `/v2/mil`, `/v2/squawk/X`, `/v2/type/X`,
