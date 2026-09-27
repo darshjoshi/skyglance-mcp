@@ -42,6 +42,22 @@ Ships the server together with the `sky` skill, which teaches Claude how to read
 /plugin install skyglance@skyglance
 ```
 
+### SkyGlance Spotter: the Claude directory edition
+
+The repository root is also a plugin, **SkyGlance Spotter** (`skyglance-spotter`), built for Anthropic's Claude plugin directory. It runs the same server from this repository's source and differs in four ways:
+
+- **Two tools are left out.** `military_aircraft` and `privacy_blocked_aircraft` aren't included, and `search_aircraft` has no military filter. Those features exist to follow aircraft whose operators or owners would rather not be followed.
+- **History is opt-in.** Sighting history is recorded only after you switch on **Record sighting history** in the plugin's settings.
+- **Settings instead of environment variables.** Home latitude and longitude are optional plugin settings.
+- **Nothing is written into the plugin folder.** The Python environment and the history database live in the plugin's data folder, which Claude Code keeps across updates and deletes when you uninstall.
+
+```
+/plugin marketplace add darshjoshi/skyglance-mcp
+/plugin install skyglance-spotter@skyglance
+```
+
+It needs [uv](https://docs.astral.sh/uv/getting-started/installation/). On first start, `uv run --locked` installs the exact dependency versions in `uv.lock` (the MCP SDK, httpx and their dependencies) from PyPI, which takes a few seconds. SkyGlance Spotter works in Claude Code and Cowork. It runs locally, so it isn't available in claude.ai chat.
+
 ---
 
 ## What you can ask
@@ -125,9 +141,10 @@ With `SKYGLANCE_HOME_LAT`/`LON` set, SkyGlance polls your sky once a minute in t
 | Variable | Default | Purpose |
 |---|---|---|
 | `SKYGLANCE_HOME_LAT` / `SKYGLANCE_HOME_LON` | unset | Your location. Enables history recording. |
-| `SKYGLANCE_POLL` | `1` | Set `0` to disable background recording. |
+| `SKYGLANCE_POLL` | `1` | Background recording. `1`/`true`/`yes`/`on` enable it; anything else disables it. |
 | `SKYGLANCE_POLL_INTERVAL` | `60` | Seconds between polls (minimum 30). |
 | `SKYGLANCE_HOME_DIR` | `~/.skyglance` | Where the database and lock live. |
+| `SKYGLANCE_EDITION` | unset | `directory` gives the SkyGlance Spotter behaviour described above. The plugin sets it. |
 
 ---
 
@@ -147,6 +164,39 @@ Both position feeds are queried in parallel and **merged**, not failed over. Mea
 Each source sits behind a circuit breaker (three strikes, 30-second cooldown). These are volunteers paying for their own bandwidth, with no SLA and no obligation to anyone. If both fail, the last good snapshot is served flagged `stale` rather than an error — a 40-second-old aircraft beats a spinner.
 
 **Not suitable for anything operational.** Dispatch, safety, ATC-adjacent — buy a commercial feed. The upstream terms say the same.
+
+## Network access
+
+SkyGlance only makes outbound requests to fetch public aviation data. It sends each service only what the lookup needs: a location **rounded to two decimal places (about 1.1 km)**, or an aircraft identifier, airline code or airport code. It never sends your conversation, files or any account details, and it uses no API keys.
+
+| Host | Why |
+|------|-----|
+| `api.adsb.lol`, `globe.adsb.lol` (and `adsb.lol`) | Live positions near a location, worldwide lookups by type, callsign or registration, and ~24-hour flight paths |
+| `opendata.adsb.fi` | Live positions near a location, merged with adsb.lol |
+| `api.adsbdb.com` | Aircraft identity and flight routes |
+| `hexdb.io` | Aircraft identity, when adsbdb has no record |
+| `api.planespotters.net` | Aircraft photographs, with photographer credit |
+| `api.open-meteo.com` | Cloud, visibility and daylight for viewing conditions |
+| `pypi.org`, `files.pythonhosted.org` | Plugin only: `uv` installs the locked dependencies on first start |
+| `github.com` | Plugin only, and only if no Python 3.10+ is installed: `uv` downloads a standalone Python |
+
+Each service has its own terms. [NOTICE.md](NOTICE.md) lists them and explains how SkyGlance meets them.
+
+## Privacy Policy
+
+This policy covers the SkyGlance MCP server, the `skyglance` plugin and the SkyGlance Spotter plugin.
+
+**Data collection.** SkyGlance has no accounts, analytics, telemetry or crash reporting, and the author receives no data from it. It doesn't read Claude's memory, chat history or your files. It uses your location only when you give one in a question or set a home location.
+
+**Usage.** A location is used to find aircraft near it. Before it leaves your computer it is rounded to about 1.1 km, so no data service receives your exact position. Where to look (direction and elevation) is worked out on your computer from the exact coordinates. Aircraft identifiers, airline codes and airport codes are sent only to the services that look them up.
+
+**Storage.** Everything SkyGlance keeps stays on your computer, in a SQLite database: `~/.skyglance/sky.db` for the server, or the plugin's data folder for SkyGlance Spotter. It holds cached aircraft and airport lookups and, only while sighting history is on, a record of aircraft that passed over your home location. Your home location itself is stored where you configured it: in Claude Code's settings for the plugin, or in your MCP configuration for the server.
+
+**Third-party sharing.** Nothing is shared with the author or sold to anyone. The services listed under [Network access](#network-access) receive the rounded location or identifier needed for each lookup, under their own privacy policies.
+
+**Data retention.** Local data stays until you delete it. Delete `~/.skyglance`, or uninstall SkyGlance Spotter, which removes its data folder. Nothing is retained anywhere else by SkyGlance.
+
+**Contact.** contact@darshjoshi.com, or [open an issue](https://github.com/darshjoshi/skyglance-mcp/issues).
 
 ---
 

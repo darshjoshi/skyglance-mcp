@@ -128,3 +128,30 @@ claude mcp add skyglance -- uvx --from skyglance skyglance   # primary
 pip install skyglance                                        # fallback
 /plugin marketplace add darshjoshi/skyglance-mcp             # with the sky skill
 ```
+
+## Directory Edition (SkyGlance Spotter)
+
+The repo root is also a plugin, `skyglance-spotter`, built for Anthropic's Claude plugin
+directory. It runs this same source through `run_server.py` with `uv run --locked` against
+the committed `uv.lock`. `.mcp.json` sets `SKYGLANCE_EDITION=directory`, and `server.py`
+reads that once at import:
+
+- `_tool(title, directory=False)` keeps a tool out of the directory edition entirely.
+  `military_aircraft` and `privacy_blocked_aircraft` use it, and `search_aircraft` is
+  registered there without `military_only`. **A new tool that finds or follows specific
+  aircraft by who operates them belongs in the same bucket.**
+- History recording is opt-in there (`poll_enabled()` defaults off). Plugin settings
+  arrive as strings and can be empty or unsubstituted, which `home()` and
+  `poll_enabled()` treat as unset.
+- Every tool needs a title and read-only annotations, via `_tool`. The directory rejects
+  tools without them.
+- `skills/sky/SKILL.md` is the spotter's skill, separate from
+  `plugins/skyglance/skills/sky/SKILL.md`. `TestToolInventory` checks it routes exactly
+  the directory edition's tools.
+- Keep every file under the repo root below 256 KiB (`uv.lock` included). Anything larger
+  holds the plugin for manual review. Any new outbound host goes in the README's
+  "Network access" table, or the directory's security scan flags an undisclosed
+  destination.
+- On release, raise `version` in `.claude-plugin/plugin.json` and the matching
+  `skyglance-spotter` entry in `marketplace.json` (the test checks they agree), and re-run
+  `uv lock` if dependencies changed.

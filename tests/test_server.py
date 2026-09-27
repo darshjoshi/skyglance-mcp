@@ -80,6 +80,9 @@ class TestToolInventory:
         assert not missing, f"tools absent from the spotter skill: {sorted(missing)}"
         for left_out in TestDirectoryEdition.LEFT_OUT:
             assert left_out not in skill, f"spotter skill mentions {left_out}"
+        claims = [int(n) for n in re.findall(r"(\d+)\s+(?:MCP\s+)?tools", skill)]
+        assert claims and all(c == len(names) for c in claims), \
+            f"spotter skill claims {claims} tools; the directory edition has {len(names)}"
 
 class TestLocationResolution:
     def test_explicit_coordinates_win(self, monkeypatch):
