@@ -18,6 +18,7 @@ import time
 from typing import Any, Optional
 
 from mcp.server.fastmcp import FastMCP
+from mcp.types import ToolAnnotations
 
 from . import airport_data, airports, traces, weather
 from . import world as world_mod
@@ -83,6 +84,20 @@ ATTRIBUTION: every position result carries an `attribution` field. adsb.lol data
 ODbL and photo credits are a condition of use, so pass them through when you show the
 data.""",
 )
+
+
+def _tool(title: str):
+    """Register a tool with a display title and read-only annotations.
+
+    Every SkyGlance tool reads public flight data or the local history; none changes
+    anything outside this machine. The only writes are local lookup caches, so
+    readOnlyHint is honest, and Claude can run the tools without a per-call prompt.
+    """
+    return mcp.tool(title=title, annotations=ToolAnnotations(
+        title=title, readOnlyHint=True, destructiveHint=False,
+        idempotentHint=True, openWorldHint=True,
+    ))
+
 
 _feeds: Optional[FeedClient] = None
 _store: Optional[Store] = None
@@ -263,7 +278,7 @@ def _strip(v: dict[str, Any]) -> dict[str, Any]:
 # ── Tools: overhead ──────────────────────────────────────────────────────────
 
 
-@mcp.tool()
+@_tool("What's Overhead")
 async def whats_overhead(lat: Optional[float] = None, lon: Optional[float] = None,
                          radius_nm: int = 60, limit: int = 25) -> dict:
     """What is in the sky above a location right now, and where to look.
@@ -308,7 +323,7 @@ async def whats_overhead(lat: Optional[float] = None, lon: Optional[float] = Non
     return result
 
 
-@mcp.tool()
+@_tool("Coming Overhead")
 async def coming_overhead(lat: Optional[float] = None,
                           lon: Optional[float] = None) -> dict:
     """What is about to pass overhead, within the next 90 seconds.
@@ -361,7 +376,7 @@ async def coming_overhead(lat: Optional[float] = None,
     }
 
 
-@mcp.tool()
+@_tool("Nearest Aircraft")
 async def nearest_aircraft(lat: Optional[float] = None, lon: Optional[float] = None,
                            count: int = 5) -> dict:
     """The closest aircraft right now, by slant range, whether or not they're visible."""
@@ -380,7 +395,7 @@ async def nearest_aircraft(lat: Optional[float] = None, lon: Optional[float] = N
 # ── Tools: identify ──────────────────────────────────────────────────────────
 
 
-@mcp.tool()
+@_tool("Identify Aircraft")
 async def identify_aircraft(hex_id: Optional[str] = None,
                             registration: Optional[str] = None,
                             callsign: Optional[str] = None) -> dict:
@@ -458,7 +473,7 @@ async def identify_aircraft(hex_id: Optional[str] = None,
     return result
 
 
-@mcp.tool()
+@_tool("Track Flight")
 async def track_flight(callsign: Optional[str] = None,
                        registration: Optional[str] = None) -> dict:
     """Where a specific flight is right now, anywhere in the world.
@@ -567,7 +582,7 @@ def _global_result(aircraft: list, obs: Optional[tuple[float, float]],
     return rows
 
 
-@mcp.tool()
+@_tool("Military Aircraft")
 async def military_aircraft(near_me: bool = False, within_km: float = 400,
                             lat: Optional[float] = None,
                             lon: Optional[float] = None) -> dict:
@@ -587,7 +602,7 @@ async def military_aircraft(near_me: bool = False, within_km: float = 400,
             "attribution": ["adsb.lol (ODbL 1.0)"]}
 
 
-@mcp.tool()
+@_tool("Emergencies")
 async def emergencies() -> dict:
     """Aircraft squawking an emergency code, worldwide.
 
@@ -623,7 +638,7 @@ async def emergencies() -> dict:
     return response
 
 
-@mcp.tool()
+@_tool("Find by Aircraft Type")
 async def find_by_type(type_code: str, near_me: bool = False, within_km: float = 400,
                        lat: Optional[float] = None, lon: Optional[float] = None) -> dict:
     """Every airborne aircraft of one ICAO type code, worldwide or nearby.
@@ -643,7 +658,7 @@ async def find_by_type(type_code: str, near_me: bool = False, within_km: float =
             "attribution": ["adsb.lol (ODbL 1.0)"]}
 
 
-@mcp.tool()
+@_tool("Interesting Nearby")
 async def interesting_nearby(lat: Optional[float] = None, lon: Optional[float] = None,
                              radius_nm: int = 60, minimum_score: float = 45) -> dict:
     """Only the aircraft worth walking outside for.
@@ -691,7 +706,7 @@ async def interesting_nearby(lat: Optional[float] = None, lon: Optional[float] =
     }
 
 
-@mcp.tool()
+@_tool("Track History")
 async def track_history(hex_id: Optional[str] = None,
                         registration: Optional[str] = None,
                         callsign: Optional[str] = None) -> dict:
@@ -750,7 +765,7 @@ async def _hex_for(registration: Optional[str] = None,
     return live.aircraft[0].hex
 
 
-@mcp.tool()
+@_tool("Airport Activity")
 async def airport_activity(icao: str, radius_nm: int = 20) -> dict:
     """What is moving around an airport right now, observed rather than scheduled.
 
@@ -788,7 +803,7 @@ async def airport_activity(icao: str, radius_nm: int = 20) -> dict:
     return activity
 
 
-@mcp.tool()
+@_tool("Airline Info")
 async def airline_info(code: str) -> dict:
     """Look up an airline by its ICAO code — the prefix on a callsign.
 
@@ -804,7 +819,7 @@ async def airline_info(code: str) -> dict:
     return {"found": True, **result, "attribution": ["adsbdb.com"]}
 
 
-@mcp.tool()
+@_tool("Privacy-Blocked Aircraft")
 async def privacy_blocked_aircraft(near_me: bool = False, within_km: float = 400,
                                    lat: Optional[float] = None,
                                    lon: Optional[float] = None) -> dict:
@@ -836,7 +851,7 @@ async def privacy_blocked_aircraft(near_me: bool = False, within_km: float = 400
             "attribution": ["adsb.lol (ODbL 1.0)"]}
 
 
-@mcp.tool()
+@_tool("Airline Fleet View")
 async def fleet_view(airline: str, limit: int = 60) -> dict:
     """Every flight an airline currently has airborne, worldwide.
 
@@ -892,7 +907,7 @@ async def fleet_view(airline: str, limit: int = 60) -> dict:
     }
 
 
-@mcp.tool()
+@_tool("Search Aircraft")
 async def search_aircraft(airline: Optional[str] = None, type_code: Optional[str] = None,
                           min_altitude_ft: Optional[float] = None,
                           max_altitude_ft: Optional[float] = None,
@@ -972,7 +987,7 @@ async def search_aircraft(airline: Optional[str] = None, type_code: Optional[str
     }
 
 
-@mcp.tool()
+@_tool("Global Stats")
 async def global_stats() -> dict:
     """How much is flying right now, worldwide: totals, busiest types and airlines.
 
@@ -1021,7 +1036,7 @@ async def global_stats() -> dict:
     }
 
 
-@mcp.tool()
+@_tool("Busiest Airports")
 async def busiest_airports(limit: int = 15, country: Optional[str] = None) -> dict:
     """Which major airports have the most traffic around them right now.
 
@@ -1096,7 +1111,7 @@ async def busiest_airports(limit: int = 15, country: Optional[str] = None) -> di
 # ── Tools: context ───────────────────────────────────────────────────────────
 
 
-@mcp.tool()
+@_tool("Viewing Conditions")
 async def viewing_conditions(lat: Optional[float] = None,
                              lon: Optional[float] = None) -> dict:
     """Cloud, visibility and daylight — whether it's worth looking up at all."""
@@ -1119,7 +1134,7 @@ async def viewing_conditions(lat: Optional[float] = None,
     }
 
 
-@mcp.tool()
+@_tool("Feed Health")
 async def feed_health() -> dict:
     """Per-source health: latency, failures, and whether a circuit breaker is open.
 
@@ -1145,7 +1160,7 @@ async def feed_health() -> dict:
 # ── Tools: history ───────────────────────────────────────────────────────────
 
 
-@mcp.tool()
+@_tool("Sighting History")
 async def sighting_history(registration: Optional[str] = None,
                            hex_id: Optional[str] = None, limit: int = 20) -> dict:
     """Every recorded pass of one aircraft over your location, most recent first."""
@@ -1165,7 +1180,7 @@ async def sighting_history(registration: Optional[str] = None,
     }
 
 
-@mcp.tool()
+@_tool("Is This New?")
 async def is_this_new(hex_id: Optional[str] = None, registration: Optional[str] = None,
                       type_code: Optional[str] = None) -> dict:
     """Have you seen this airframe, or this type, over your location before?"""
@@ -1193,7 +1208,7 @@ async def is_this_new(hex_id: Optional[str] = None, registration: Optional[str] 
     return out
 
 
-@mcp.tool()
+@_tool("My Records")
 async def my_records() -> dict:
     """Your personal extremes: closest, lowest, most directly overhead, busiest day."""
     r = store().records()
@@ -1204,7 +1219,7 @@ async def my_records() -> dict:
     return r
 
 
-@mcp.tool()
+@_tool("Spotting Stats")
 async def spotting_stats(days: Optional[int] = None) -> dict:
     """How much you've seen: totals, most common types, busiest hours."""
     since = (time.time() - days * 86400) if days else None
@@ -1214,7 +1229,7 @@ async def spotting_stats(days: Optional[int] = None) -> dict:
     return stats
 
 
-@mcp.tool()
+@_tool("History Recorder Status")
 async def poller_status() -> dict:
     """Whether background history recording is running, and what it has captured."""
     _maybe_start_poller()
