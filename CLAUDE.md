@@ -38,10 +38,11 @@ reading before changing anything here: `FREE-STACK.md`, `OVERHEAD-DETECTION.md`,
 
 ## Rules That Are Load-Bearing
 
-**`mcp>=1.0.0,<2` — do not loosen.** MCP Python SDK 2.0 removed `mcp.server.fastmcp`,
+**`mcp>=1.10.0,<2` — do not loosen.** MCP Python SDK 2.0 removed `mcp.server.fastmcp`,
 which every tool here is built on. The sibling project pitwall shipped `mcp>=1.0.0` and
 every new install broke the day 2.0 was published. Lifting the bound means porting all 24
-tools to `mcp.server.mcpserver.MCPServer` first. Same reasoning for `httpx<1`.
+tools to `mcp.server.mcpserver.MCPServer` first. Same reasoning for `httpx<1`. The 1.10
+floor is for tool titles and annotations, which the Claude directory requires.
 
 **stdout is the JSON-RPC channel in stdio mode.** Every diagnostic goes to `sys.stderr`,
 via `logging` (already configured to stderr in `server.py`). A stray `print()` corrupts

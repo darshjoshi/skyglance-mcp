@@ -1018,7 +1018,6 @@ async def _search_aircraft(airline: Optional[str] = None, type_code: Optional[st
     }
 
 
-
 # The directory edition registers search_aircraft without military_only, so the filter
 # can't bring back what leaving out military_aircraft took away. Same search otherwise.
 if DIRECTORY_EDITION:
@@ -1062,6 +1061,7 @@ else:
         return await _search_aircraft(airline, type_code, min_altitude_ft, max_altitude_ft,
                                       min_speed_kt, max_speed_kt, military_only, near_me,
                                       within_km, lat, lon, limit)
+
 
 @_tool("Global Stats")
 async def global_stats() -> dict:

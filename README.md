@@ -182,6 +182,11 @@ SkyGlance only makes outbound requests to fetch public aviation data. It sends e
 
 Each service has its own terms. [NOTICE.md](NOTICE.md) lists them and explains how SkyGlance meets them.
 
+Two development-only files in this repository also make network requests. Neither the server nor the plugin ever runs them:
+
+- `tools/build_airports.py` downloads the public-domain OurAirports CSV from `davidmegginson.github.io` to regenerate `src/skyglance/airport_data.py`, and a maintainer runs it by hand.
+- `.github/workflows/publish.yml` runs on GitHub Actions when a release is published. It uploads to PyPI and downloads the `mcp-publisher` tool from the Model Context Protocol registry's GitHub releases.
+
 ## Privacy Policy
 
 This policy covers the SkyGlance MCP server, the `skyglance` plugin and the SkyGlance Spotter plugin.
