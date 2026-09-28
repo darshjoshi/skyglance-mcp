@@ -68,5 +68,5 @@ stacking free sources fixes it.
 - [skyglance-mac](https://github.com/darshjoshi/skyglance-mac) — the same data as a macOS
   menu bar app
 
-MIT licensed. Aircraft data from adsb.lol (ODbL), airplanes.live, adsb.fi, adsbdb, hexdb
+MIT licensed. Aircraft data from adsb.lol (ODbL), adsb.fi, adsbdb, hexdb
 and planespotters.net. Not for operational use.

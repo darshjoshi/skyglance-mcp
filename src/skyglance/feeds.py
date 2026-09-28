@@ -1,17 +1,18 @@
-"""Live aircraft positions, merged from three community ADS-B feeds.
+"""Live aircraft positions, merged from community ADS-B feeds (adsb.lol and adsb.fi).
 
 Ported from app/Sources/OverheadKit/FeedClient.swift and reference/server.mjs in the
 skyglance-mac repo. The four decisions that matter, all inherited from that work:
 
-1. Merge, don't fail over. Querying all three every time and unioning the results buys
-   both redundancy and ~15% more aircraft (measured +17.3% over Newark, 2026-08-02).
+1. Merge, don't fail over. Querying every source every time and unioning the results
+   buys both redundancy and more aircraft (measured +17.3% over Newark, 2026-08-02, with
+   airplanes.live as a third source; see SOURCES for why it's gone).
 2. Circuit breakers. Three strikes opens a source for 30 seconds. These are volunteer
    services with no funding and no SLA; hammering a sick one is rude and pointless.
 3. Reserve a rate slot and wait, don't skip. Rate limits are per-source and global, so
    skipping starves a second concurrent query instead of merely delaying it.
 4. Stale data beats an error. A 40-second-old aircraft is more useful than a spinner.
 
-OpenSky is deliberately absent. It contributes real coverage but its licence requires a
+OpenSky is deliberately absent, as is airplanes.live since it closed its API. It contributes real coverage but its licence requires a
 written agreement for operational use, and this package is redistributed.
 """
 
@@ -61,10 +62,6 @@ def _adsb_lol(lat: float, lon: float, radius: int) -> str:
     return f"https://api.adsb.lol/v2/point/{coarsen(lat)}/{coarsen(lon)}/{radius}"
 
 
-def _airplanes_live(lat: float, lon: float, radius: int) -> str:
-    return f"https://api.airplanes.live/v2/point/{coarsen(lat)}/{coarsen(lon)}/{radius}"
-
-
 def _adsb_fi(lat: float, lon: float, radius: int) -> str:
     return (f"https://opendata.adsb.fi/api/v2/lat/{coarsen(lat)}"
             f"/lon/{coarsen(lon)}/dist/{radius}")
@@ -72,9 +69,11 @@ def _adsb_fi(lat: float, lon: float, radius: int) -> str:
 
 SOURCES: tuple[FeedSource, ...] = (
     FeedSource("adsb.lol", 1.0, _adsb_lol, "adsb.lol (ODbL 1.0)"),
-    FeedSource("airplanes.live", 1.0, _airplanes_live, "airplanes.live"),
     FeedSource("adsb.fi", 1.0, _adsb_fi, "adsb.fi"),
 )
+# airplanes.live was a third source until September 2026, when its API began answering
+# every request with HTTP 403 and "please contact us" first. Querying a service that has
+# asked to be asked is not on; re-add it only with their agreement.
 
 #: Global endpoints on adsb.lol, which serve the whole world rather than a circle.
 #: Verified live 2026-08-02: /mil -> 81, /type/A388 -> 44, /registration/N520JB -> 1.
@@ -101,7 +100,7 @@ class SourceHealth:
 
 @dataclass
 class Aircraft:
-    """One aircraft, normalised across the three feeds' shared readsb JSON."""
+    """One aircraft, normalised across the feeds' shared readsb JSON."""
     hex: str
     callsign: Optional[str] = None
     registration: Optional[str] = None
@@ -120,7 +119,7 @@ class Aircraft:
     seen_pos_s: Optional[float] = None
     category: Optional[str] = None
     db_flags: int = 0
-    #: Build year, carried by airplanes.live for some aircraft. FR24 charges for this
+    #: Build year, carried by some feeds for some aircraft. FR24 charges for this
     #: under "aircraft age"; it is present here for free, just sparsely populated.
     year: Optional[str] = None
     sources: list[str] = field(default_factory=list)
@@ -265,7 +264,7 @@ class FeedClient:
                 challenger_age = a.seen_pos_s if a.seen_pos_s is not None else float("inf")
                 winner = a if challenger_age < incumbent_age else incumbent
                 loser = incumbent if winner is a else a
-                # Backfill: airplanes.live carries desc/ownOp the others often omit.
+                # Backfill: one feed often carries desc/ownOp that another omits.
                 for attr in ("callsign", "registration", "type_code", "description",
                              "operator", "squawk", "category", "year"):
                     if getattr(winner, attr) is None and getattr(loser, attr) is not None:

@@ -2,7 +2,11 @@
   "mcpServers": {
     "skyglance": {
       "command": "uvx",
-      "args": ["--from", "skyglance", "skyglance"]
+      "args": [
+        "--from",
+        "skyglance==0.2.1",
+        "skyglance"
+      ]
     }
   }
 }

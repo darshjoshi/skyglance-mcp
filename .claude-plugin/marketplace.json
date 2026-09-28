@@ -17,7 +17,31 @@
       },
       "homepage": "https://github.com/darshjoshi/skyglance-mcp",
       "license": "MIT",
-      "keywords": ["aviation", "adsb", "flight-tracking", "planespotting", "aircraft"]
+      "keywords": [
+        "aviation",
+        "adsb",
+        "flight-tracking",
+        "planespotting",
+        "aircraft"
+      ]
+    },
+    {
+      "name": "skyglance-spotter",
+      "source": "./",
+      "description": "The Claude directory edition: 22 read-only tools and the sky skill, home location and opt-in history set in the plugin's settings.",
+      "version": "0.3.0",
+      "author": {
+        "name": "Darsh Joshi"
+      },
+      "homepage": "https://github.com/darshjoshi/skyglance-mcp",
+      "license": "MIT",
+      "keywords": [
+        "aviation",
+        "adsb",
+        "flight-tracking",
+        "planespotting",
+        "aircraft"
+      ]
     }
   ]
 }

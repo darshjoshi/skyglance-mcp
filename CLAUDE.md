@@ -14,7 +14,7 @@ reading before changing anything here: `FREE-STACK.md`, `OVERHEAD-DETECTION.md`,
 ## Architecture
 
 - `src/skyglance/server.py` — MCP tool definitions. Thin: validate, delegate, format.
-- `src/skyglance/feeds.py` — three ADS-B feeds queried in parallel and merged. Circuit
+- `src/skyglance/feeds.py` — two ADS-B feeds queried in parallel and merged. Circuit
   breakers, rate-slot reservation, coordinate coarsening, last-good snapshot.
 - `src/skyglance/geometry.py` — elevation, bearing, slant range, closest point of approach.
 - `src/skyglance/enrich.py` — adsbdb → hexdb → planespotters, cached forever.
@@ -38,10 +38,11 @@ reading before changing anything here: `FREE-STACK.md`, `OVERHEAD-DETECTION.md`,
 
 ## Rules That Are Load-Bearing
 
-**`mcp>=1.0.0,<2` — do not loosen.** MCP Python SDK 2.0 removed `mcp.server.fastmcp`,
+**`mcp>=1.10.0,<2` — do not loosen.** MCP Python SDK 2.0 removed `mcp.server.fastmcp`,
 which every tool here is built on. The sibling project pitwall shipped `mcp>=1.0.0` and
 every new install broke the day 2.0 was published. Lifting the bound means porting all 24
-tools to `mcp.server.mcpserver.MCPServer` first. Same reasoning for `httpx<1`.
+tools to `mcp.server.mcpserver.MCPServer` first. Same reasoning for `httpx<1`. The 1.10
+floor is for tool titles and annotations, which the Claude directory requires.
 
 **stdout is the JSON-RPC channel in stdio mode.** Every diagnostic goes to `sys.stderr`,
 via `logging` (already configured to stderr in `server.py`). A stray `print()` corrupts
@@ -67,8 +68,10 @@ for operational use, and this package is redistributed.
 All free, no API keys. Terms and obligations in `NOTICE.md` — attribution is returned in
 the tool output because ODbL and planespotters require it.
 
-- Positions: adsb.lol (ODbL), airplanes.live, adsb.fi — merged, ~17% more aircraft than
-  the best single source (measured Newark 2026-08-02: union 61 vs best 52)
+- Positions: adsb.lol (ODbL), adsb.fi — merged. With airplanes.live as a third source the
+  union was ~17% more aircraft than the best single source (Newark 2026-08-02: 61 vs 52).
+  airplanes.live has answered 403 "contact us first" since September 2026 and is no longer
+  queried; don't re-add it without their agreement.
 - Identity: adsbdb.com → hexdb.io fallback · Photos: planespotters.net
 - Conditions: Open-Meteo
 - Global endpoints on adsb.lol: `/v2/mil`, `/v2/squawk/X`, `/v2/type/X`,
@@ -87,13 +90,18 @@ values by running that file rather than by hand.
 
 ## Releasing
 
-Bump the version in **four** places or the release is broken:
+Bump the version in **five** places or the release is broken:
 
 1. `pyproject.toml` → `version`
 2. `server.json` → `version` **and** `packages[0].version` (the registry rejects a
    mismatch with PyPI)
 3. `plugins/skyglance/.claude-plugin/plugin.json` → `version`
 4. `.claude-plugin/marketplace.json` → `plugins[0].version`
+5. `plugins/skyglance/.mcp.json` → the `skyglance==X.Y.Z` pin (the directory blocks
+   unpinned launchers). Plugin installs fail in the few minutes between pushing the
+   bump and the release workflow putting that version on PyPI, so release promptly.
+
+`tests/test_server.py::TestVersionSync` checks all five.
 
 Then publish a GitHub release; `.github/workflows/publish.yml` handles PyPI (trusted
 publishing) and the MCP registry.
@@ -121,3 +129,30 @@ claude mcp add skyglance -- uvx --from skyglance skyglance   # primary
 pip install skyglance                                        # fallback
 /plugin marketplace add darshjoshi/skyglance-mcp             # with the sky skill
 ```
+
+## Directory Edition (SkyGlance Spotter)
+
+The repo root is also a plugin, `skyglance-spotter`, built for Anthropic's Claude plugin
+directory. It runs this same source through `run_server.py` with `uv run --locked` against
+the committed `uv.lock`. `.mcp.json` sets `SKYGLANCE_EDITION=directory`, and `server.py`
+reads that once at import:
+
+- `_tool(title, directory=False)` keeps a tool out of the directory edition entirely.
+  `military_aircraft` and `privacy_blocked_aircraft` use it, and `search_aircraft` is
+  registered there without `military_only`. **A new tool that finds or follows specific
+  aircraft by who operates them belongs in the same bucket.**
+- History recording is opt-in there (`poll_enabled()` defaults off). Plugin settings
+  arrive as strings and can be empty or unsubstituted, which `home()` and
+  `poll_enabled()` treat as unset.
+- Every tool needs a title and read-only annotations, via `_tool`. The directory rejects
+  tools without them.
+- `skills/sky/SKILL.md` is the spotter's skill, separate from
+  `plugins/skyglance/skills/sky/SKILL.md`. `TestToolInventory` checks it routes exactly
+  the directory edition's tools.
+- Keep every file under the repo root below 256 KiB (`uv.lock` included). Anything larger
+  holds the plugin for manual review. Any new outbound host goes in the README's
+  "Network access" table, or the directory's security scan flags an undisclosed
+  destination.
+- On release, raise `version` in `.claude-plugin/plugin.json` and the matching
+  `skyglance-spotter` entry in `marketplace.json` (the test checks they agree), and re-run
+  `uv lock` if dependencies changed.
