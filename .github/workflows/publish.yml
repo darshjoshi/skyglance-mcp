@@ -1,3 +1,7 @@
+# CI only: runs on GitHub Actions when a release is published. It is not part of the
+# SkyGlance server or its Claude plugins, which never read or send credentials. The
+# only credential here is the OIDC token GitHub issues to this workflow (id-token: write)
+# for PyPI trusted publishing and the MCP registry login.
 name: Publish to PyPI & MCP Registry
 
 on:
@@ -34,11 +38,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Pinned and checksum-verified rather than "latest" piped into tar. The checksum is
+      # from registry_<version>_checksums.txt on the same release; update both together.
       - name: Install mcp-publisher
+        env:
+          MCP_PUBLISHER_VERSION: "1.8.1"
+          MCP_PUBLISHER_SHA256: a06c9096dcb9727c13555b6be26c7effa707b01f06a4c561ba7a3635443cf2cc
         run: |
-          curl -sL https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_linux_amd64.tar.gz | tar xz
-          chmod +x mcp-publisher
-          sudo mv mcp-publisher /usr/local/bin/
+          curl -sSfL -o mcp-publisher.tar.gz \
+            "https://github.com/modelcontextprotocol/registry/releases/download/v${MCP_PUBLISHER_VERSION}/mcp-publisher_linux_amd64.tar.gz"
+          echo "${MCP_PUBLISHER_SHA256}  mcp-publisher.tar.gz" | sha256sum --check --strict
+          tar -xzf mcp-publisher.tar.gz mcp-publisher
+          sudo install -m 0755 mcp-publisher /usr/local/bin/mcp-publisher
 
       - name: Publish to MCP Registry
         run: |

@@ -26,11 +26,8 @@ Have I ever seen this one before?
 ## Requirements
 
 [uv](https://docs.astral.sh/uv/getting-started/installation/) on your PATH — the server
-runs via `uvx`, so there's no pip install and no virtualenv:
-
-```bash
-curl -LsSf https://astral.sh/uv/install.sh | sh
-```
+runs via `uvx`, so there's no pip install and no virtualenv. uv's installation guide
+covers every platform.
 
 No API keys. Every data source is free.
 

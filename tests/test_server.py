@@ -31,7 +31,7 @@ class TestToolInventory:
 
     @pytest.mark.parametrize("doc", [
         "README.md",
-        "CLAUDE.md",
+        ".claude/CLAUDE.md",
         "plugins/skyglance/README.md",
         "plugins/skyglance/skills/sky/SKILL.md",
     ])
@@ -280,3 +280,38 @@ class TestRegistryConstraints:
         assert data["name"].startswith("io.github."), \
             "the registry namespaces by GitHub owner"
         assert data["packages"][0]["registryType"] == "pypi"
+
+
+class TestDirectorySubmissionRules:
+    """Rules the Claude directory's validator enforced on this repo, kept as tests.
+
+    Each one failed or warned in the developer portal once; see the commit that added it.
+    """
+
+    SKIP_DIRS = {".git", ".venv", "venv", "build", "dist", "__pycache__", ".pytest_cache"}
+
+    def _repo_text_files(self):
+        for path in REPO.rglob("*"):
+            if path.is_file() and not self.SKIP_DIRS & set(path.relative_to(REPO).parts) \
+                    and path.suffix in {".md", ".yml", ".yaml", ".json", ".py", ".toml", ".sh"}:
+                yield path
+
+    def test_no_package_manager_env_on_plugin_servers(self):
+        """Blocking: any UV_*/PIP_*/npm env on a plugin's MCP server reads as a registry redirect."""
+        for mcp_json in [REPO / ".mcp.json", REPO / "plugins/skyglance/.mcp.json"]:
+            for name, server_cfg in json.loads(mcp_json.read_text())["mcpServers"].items():
+                for key in server_cfg.get("env", {}):
+                    assert not re.match(r"(UV|PIP|NPM|YARN|BUN|PNPM)_|npm_config_", key, re.I), \
+                        f"{mcp_json.name}: {name} sets {key}"
+
+    def test_nothing_pipes_a_download_into_a_program(self):
+        """Warning: `curl ... | sh` (or | tar) is flagged as download-and-run, even in docs."""
+        pattern = re.compile(r"\b(curl|wget)\b[^\n|]*\|\s*(sudo\s+)?(sh|bash|zsh|tar|python)\b")
+        offenders = [str(p.relative_to(REPO)) for p in self._repo_text_files()
+                     if p.name != "test_server.py" and pattern.search(p.read_text(errors="ignore"))]
+        assert not offenders, f"download piped into a program in: {offenders}"
+
+    def test_contributor_notes_are_not_at_the_plugin_root(self):
+        """Warning: CLAUDE.md at a plugin root isn't loaded; .claude/CLAUDE.md still is, locally."""
+        assert not (REPO / "CLAUDE.md").exists()
+        assert (REPO / ".claude/CLAUDE.md").exists()

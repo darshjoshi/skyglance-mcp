@@ -23,7 +23,7 @@ claude mcp add skyglance -- uvx --from skyglance skyglance
 
 Then ask Claude: *"What's flying over me right now?"*
 
-> Needs [uv](https://docs.astral.sh/uv/getting-started/installation/) (`curl -LsSf https://astral.sh/uv/install.sh | sh`). No API keys — every data source here is free.
+> Needs [uv](https://docs.astral.sh/uv/getting-started/installation/). Its installation guide covers every platform. No API keys — every data source here is free.
 
 **Set your location** so you can stop repeating it, and so SkyGlance can build a sighting history:
 
@@ -49,7 +49,7 @@ The repository root is also a plugin, **SkyGlance Spotter** (`skyglance-spotter`
 - **Two tools are left out.** `military_aircraft` and `privacy_blocked_aircraft` aren't included, and `search_aircraft` has no military filter. Those features exist to follow aircraft whose operators or owners would rather not be followed.
 - **History is opt-in.** Sighting history is recorded only after you switch on **Record sighting history** in the plugin's settings.
 - **Settings instead of environment variables.** Home latitude and longitude are optional plugin settings.
-- **Nothing is written into the plugin folder.** The Python environment and the history database live in the plugin's data folder, which Claude Code keeps across updates and deletes when you uninstall.
+- **History lives in the plugin's data folder.** The history database is kept in a folder Claude Code preserves across plugin updates and deletes when you uninstall. The Python environment `uv` builds on first start sits in the plugin folder and is rebuilt after each update.
 
 ```
 /plugin marketplace add darshjoshi/skyglance-mcp
@@ -185,7 +185,7 @@ Each service has its own terms. [NOTICE.md](NOTICE.md) lists them and explains h
 Two development-only files in this repository also make network requests. Neither the server nor the plugin ever runs them:
 
 - `tools/build_airports.py` downloads the public-domain OurAirports CSV from `davidmegginson.github.io` to regenerate `src/skyglance/airport_data.py`, and a maintainer runs it by hand.
-- `.github/workflows/publish.yml` runs on GitHub Actions when a release is published. It uploads to PyPI and downloads the `mcp-publisher` tool from the Model Context Protocol registry's GitHub releases.
+- `.github/workflows/publish.yml` runs on GitHub Actions when a release is published. It downloads a pinned, checksum-verified `mcp-publisher` from the Model Context Protocol registry's GitHub releases, then publishes to PyPI and the MCP registry. It authenticates with the short-lived OIDC token GitHub Actions issues to that workflow. SkyGlance and its plugins never read, store or send any credential.
 
 ## Privacy Policy
 
